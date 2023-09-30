@@ -16,9 +16,4 @@ if __name__ == "__main__":
             break
 
     # This will then found the manga that matched the search if one was found.
-    if manga_matched is not None:
-        mangadex.MangaChapters(manga_matched.id).download_all()
-    
-    # Just for testing >500 pages offset implementation.
-    # manga_by_id = mangadex.MangaSearch().search_by_id("227e3f72-863f-46f9-bafe-c43104ca29ee")
-    # mangadex.MangaChapters(manga_by_id.id).download_chapter_by_number("510")
+    if manga_matched is not None: mangadex.MangaChapters(manga_matched.id).download_all()

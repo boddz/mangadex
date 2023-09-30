@@ -182,9 +182,3 @@ class MangaSearch:
         }).json()
         if "result" in json and json["result"] == "error": raise ResultNotOkayError(json)
         return [self.__manga_from_json(manga_json, self.preferred_lang) for manga_json in json["data"]]
-
-if __name__ == "__main__":
-    ms = MangaSearch()
-    print(*[manga.id for manga in ms.search_by_title("Chieri's Love Is 8 Meters Tall", sort={"rating": "asc"})])
-    print(*[f"[{manga.title}]" for manga in ms.search_by_tags(include_tags=["Comedy"], exclude_tags=["Gore"])])
-    print(ms.search_by_id("801513ba-a712-498c-8f57-cae55b38cc92"))

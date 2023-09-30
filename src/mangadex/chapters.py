@@ -82,19 +82,33 @@ class MangaChapters:
     @property
     def __chapters_json(self) -> dict:
         """
-        The raw json data for chapters. TODO: chapters > 500 using offset here.
+        The raw json data for chapters in a list of segmented json.
         """
-        json = self.request_handler.get(f"manga/{self.manga_id}/feed",
-                                        params={"translatedLanguage[]": self.preferred_lang, "limit": 500}).json()
-        return json
+        # This is my solution for getting chapters that are past the initial limit of 500 (which is max) using offset.
+        list_json_all, chapters_len, mult = [], 500, 0
+        while chapters_len == 500:  # While the data for chapters includes the max of 500 in an array, keep going.
+            offset_calc = mult * 500 if mult > 0 else 0  # 0 first time, 500 x mult * 1, 2, 3, ...
+            json = self.request_handler.get(f"manga/{self.manga_id}/feed",
+                                            params={
+                                                "translatedLanguage[]": self.preferred_lang,
+                                                "limit": 500,
+                                                "offset": offset_calc
+                                            }).json()
+            if "result" in json and json["result"] == "error": raise ResultNotOkayError(json)  # Any error in json.
+            list_json_all.append(json)  # Add to list which will be returned [<json_seg>, <json_seg>, ...]
+            chapters_len = len(json["data"])
+            mult += 1
+        return list_json_all
 
     @property
-    def all(self) -> (int, list(Chapter)):  # TODO: manga pages > 500 using offset.
+    def all(self) -> (int, list(Chapter)):
         """
         A list of all chapters as ``Chapter`` objects.
         """
-        chapters = []
-        for chapter in self.__chapters_json["data"]:
+        chapters, chapters_json_unpacked = [], []
+        # Unpack the segmented json list and store them all in the same level of a new list.
+        for json_seg in self.__chapters_json: [chapters_json_unpacked.append(item) for item in json_seg["data"]]
+        for chapter in chapters_json_unpacked:
             chapters.append(
                 Chapter(
                     id=chapter["id"],
@@ -137,6 +151,15 @@ class MangaChapters:
                 page_dest = f"{quality}/{json['chapter']['hash']}/{page_url}"
                 page_image_file.write(self.request_handler.get(page_dest, override_url=json['baseUrl']).content)
 
+    def download_chapter_by_number(self, number: str, *, datasaver: bool=False, path: str=None) -> None:
+        for chapter in self.all[1]:
+            if chapter.number == number:
+                print(f"{self.manga_title}: matched `{number}`: downloading chapter ({number}) \"{chapter.title}\"")
+                self._download(chapter, datasaver=datasaver, path=path)
+                print(f"{self.manga_title}: Successfully downloaded chapter")
+                return
+        print(f"{self.manga_title}: could not find a match for chapter `{number}`")
+
     def download_all(self, *, datasaver: bool=False, path: str=None) -> None:
         """
         Download all chapters of a manga using ``self.manga_id`` as the manga ID hash.
@@ -177,8 +200,3 @@ class MangaChapters:
                   f"\"{chapter.title}\" ~~> downloaded {index} out of {total_chapters} available chapters ", end="")
             self._download(chapter, datasaver=datasaver, path=path)
         print(f"\n{self.manga_title}: Successfully downloaded all chapters")
-
-
-if __name__ == "__main__":
-    mc = MangaChapters("40c12869-5686-4e21-9048-39882a026858")
-    mc.download_all()
